@@ -18,6 +18,8 @@ interface CandidateAttempt {
   MatchingSkills: string; // строка через запятую
   MissingSkills: string;  // строка через запятую
   score: number;
+  matchingSkills?: string[];
+  missingSkills?: string[];
 }
 
 interface PostCandidate {
@@ -67,18 +69,19 @@ export function StudentJobMatch() {
           description: j.description,
         }));
 
-        setJobs(jobsData);
-
-        // Преобразуем строки навыков в массивы
+        // Парсим строки навыков в массивы
         const candidatesData = candidatesDataRaw.map((c) => ({
           ...c,
-          attempts: c.attempts.map((a: CandidateAttempt) => ({
-            ...a,
-            matchingSkills: a.MatchingSkills ? a.MatchingSkills.split(",").map(s => s.trim()) : [],
-            missingSkills: a.MissingSkills ? a.MissingSkills.split(",").map(s => s.trim()) : [],
-          })),
+          attempts: Array.isArray(c.attempts)
+            ? c.attempts.map((a: CandidateAttempt) => ({
+                ...a,
+                matchingSkills: a.MatchingSkills?.split(",").map((s) => s.trim()) || [],
+                missingSkills: a.MissingSkills?.split(",").map((s) => s.trim()) || [],
+              }))
+            : [],
         }));
 
+        setJobs(jobsData);
         setCandidates(candidatesData);
       } catch (err) {
         console.error("Job match load error:", err);
@@ -112,14 +115,16 @@ export function StudentJobMatch() {
 
         <div className="space-y-4">
           {jobs.map((job) => {
-            const candidate = candidates.find((c) => c.jobId === job.id);
-            const lastAttempt = candidate?.attempts?.[candidate.attempts.length - 1];
+            // все кандидаты для этой вакансии
+            const jobCandidates = candidates.filter((c) => c.jobId === job.id);
 
-            const matchPercentage = lastAttempt?.score ?? 0;
-            const matchingSkills = lastAttempt?.matchingSkills ?? [];
-            const missingSkills = lastAttempt?.missingSkills ?? [];
+            const attemptsList = jobCandidates.flatMap(c => c.attempts);
+            const totalScore = attemptsList.length > 0 
+              ? Math.round(attemptsList.reduce((sum, a) => sum + a.score, 0) / attemptsList.length) 
+              : 0;
 
-            const matchStyle = getMatchColor(matchPercentage);
+            const matchStyle = getMatchColor(totalScore);
+
             const isExpanded = expandedJob === job.id;
 
             return (
@@ -128,6 +133,7 @@ export function StudentJobMatch() {
                 className="bg-white rounded-xl border border-gray-200 hover:shadow-lg transition-all overflow-hidden"
               >
                 <div className="p-6">
+                  {/* Верхняя информация о вакансии */}
                   <div className="flex items-start justify-between mb-4">
                     <div className="flex-1">
                       <div className="flex items-start gap-3 mb-2">
@@ -155,59 +161,47 @@ export function StudentJobMatch() {
                         </div>
                       </div>
                     </div>
-
-                    <div
-                      className="relative ml-4"
-                      onMouseEnter={() => setHoveredMatch(job.id)}
-                      onMouseLeave={() => setHoveredMatch(null)}
-                    >
-                      <div
-                        className={`${matchStyle.bg} ${matchStyle.border} border-2 rounded-xl p-4 text-center min-w-[120px]`}
-                      >
-                        <p className={`text-3xl font-bold ${matchStyle.text}`}>{matchPercentage}%</p>
-                        <p className="text-xs text-gray-600 mt-1">Match Score</p>
-                        <Info className="w-4 h-4 text-gray-400 mx-auto mt-2" />
-                      </div>
-
-                      {hoveredMatch === job.id && (
-                        <div className="absolute right-0 top-full mt-2 w-64 bg-gray-900 text-white text-xs rounded-lg p-4 z-10 shadow-xl">
-                          <p className="font-semibold mb-2">Match Details:</p>
-                          <ul className="space-y-1">
-                            {matchingSkills.map((s) => (
-                              <li key={s}>✔ {s}</li>
-                            ))}
-                            {missingSkills.map((s) => (
-                              <li key={s}>✖ {s}</li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
-                    </div>
                   </div>
 
-                  <div className="mb-4">
-                    <p className="text-sm font-medium text-gray-700 mb-2">Matching Skills:</p>
-                    <div className="flex flex-wrap gap-2">
-                      {matchingSkills.length > 0
-                        ? matchingSkills.map((skill) => <SkillBadge key={skill} skill={skill} variant="strong" />)
-                        : "No passed skills yet"}
-                    </div>
-                  </div>
-
-                  {missingSkills.length > 0 && (
-                    <div className="mb-4">
-                      <p className="text-sm font-medium text-gray-700 mb-2">Missing Skills:</p>
-                      <div className="flex flex-wrap gap-2">
-                        {missingSkills.map((skill) => (
-                          <SkillBadge key={skill} skill={skill} variant="missing" />
-                        ))}
-                      </div>
+                  {/* Верхний индикатор — общий процент по всем попыткам */}
+                  {attemptsList.length > 0 && (
+                    <div className={`${matchStyle.bg} ${matchStyle.border} border-2 rounded-xl p-4 text-center min-w-[120px] mb-4`}>
+                      <p className={`text-3xl font-bold ${matchStyle.text}`}>{totalScore}%</p>
+                      <p className="text-xs text-gray-600 mt-1">Average Match</p>
+                      <Info className="w-4 h-4 text-gray-400 mx-auto mt-2" />
                     </div>
                   )}
 
-                  <div className="mb-4">
-                    <ProgressBar value={matchPercentage} color={matchStyle.color as any} />
-                  </div>
+                  {/* Все попытки прохождения теста для вакансии */}
+                  {attemptsList.length > 0 ? (
+                    <div className="mb-4 space-y-4">
+                      {attemptsList.map((attempt, idx) => {
+                        const attemptStyle = getMatchColor(attempt.score);
+                        return (
+                          <div key={idx} className="border border-gray-200 rounded-xl p-4 bg-gray-50">
+                            <div className="flex justify-between items-center mb-2">
+                              <p className={`font-semibold ${attemptStyle.text}`}>{attempt.score}%</p>
+                              <p className="text-xs text-gray-500">{attempt.date}</p>
+                            </div>
+                            <div className="flex flex-wrap gap-2 mb-2">
+                              {attempt.matchingSkills?.map(s => (
+                                <SkillBadge key={s} skill={s} variant="strong" />
+                              ))}
+                              {attempt.matchingSkills?.length === 0 && <span className="text-gray-500 text-xs">No matched skills</span>}
+                            </div>
+                            <div className="flex flex-wrap gap-2">
+                              {attempt.missingSkills?.map(s => (
+                                <SkillBadge key={s} skill={s} variant="missing" />
+                              ))}
+                              {attempt.missingSkills?.length === 0 && <span className="text-gray-500 text-xs">No missing skills</span>}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <p className="text-gray-500 mb-4">No attempts yet for this job.</p>
+                  )}
 
                   <div className="flex items-center justify-between">
                     <button

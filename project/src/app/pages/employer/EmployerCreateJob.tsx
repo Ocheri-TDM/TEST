@@ -12,10 +12,10 @@ export function EmployerCreateJob() {
   const [experienceLevel, setExperienceLevel] = useState<"entry" | "mid" | "senior">("mid");
   const [salaryMin, setSalaryMin] = useState("");
   const [salaryMax, setSalaryMax] = useState("");
-  
+
   const [hardSkills, setHardSkills] = useState<string[]>([]);
   const [newHardSkill, setNewHardSkill] = useState("");
-  
+
   const [softSkills, setSoftSkills] = useState<string[]>([]);
   const [newSoftSkill, setNewSoftSkill] = useState("");
 
@@ -53,39 +53,43 @@ export function EmployerCreateJob() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const employerId = localStorage.getItem("userId");
 
-    // Данные вакансии
+    if (!employerId) {
+      alert("Employer not authenticated");
+      return;
+    }
+
     const payload = {
       jobTitle,
       description,
       location,
       jobType,
       experienceLevel,
-      salaryMin,
-      salaryMax,
+      salaryMin: salaryMin ? Number(salaryMin) : undefined,
+      salaryMax: salaryMax ? Number(salaryMax) : undefined,
       hardSkills,
       softSkills,
-      postedBy: localStorage.getItem("userEmail") || "employer@example.com", // привязка к текущему работодателю
+      employerId: Number(employerId),
+      postedBy: localStorage.getItem("userEmail") || "employer@example.com",
     };
 
     try {
-      const response = await fetch("https://19e71b04da22e75b.mokky.dev/employer-posting", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(payload),
-      });
+      const response = await fetch(
+        "https://19e71b04da22e75b.mokky.dev/employer-posting",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        }
+      );
 
-      if (!response.ok) {
-        throw new Error("Failed to create job posting");
-      }
+      if (!response.ok) throw new Error("Failed to create job posting");
 
       const result = await response.json();
       console.log("Job posted:", result);
 
-      // После успешного сохранения — переходим к кандидатов
-      navigate("/employer/candidates");
+      navigate(`/employer/create-test/${result.id}`);
     } catch (err) {
       console.error(err);
       alert("Failed to create job posting. Please try again.");

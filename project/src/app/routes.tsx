@@ -17,6 +17,7 @@ import { EmployerDashboard } from "./pages/employer/EmployerDashboard";
 import { EmployerCreateJob } from "./pages/employer/EmployerCreateJob";
 import { EmployerCandidates } from "./pages/employer/EmployerCandidates";
 import { EmployerAnalytics } from "./pages/employer/EmployerAnalytics";
+import { EmployerCreateTest } from "./pages/employer/EmployerCreateTest";
 
 import { RoleGuard } from "./components/RoleGuard";
 
@@ -62,6 +63,7 @@ export const router = createBrowserRouter([
     children: [
       { index: true, element: <EmployerDashboard /> },
       { path: "create-job", element: <EmployerCreateJob /> },
+      { path: "create-test/:jobId", element: <EmployerCreateTest />},
       { path: "candidates", element: <EmployerCandidates /> },
       { path: "analytics", element: <EmployerAnalytics /> },
     ],
