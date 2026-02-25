@@ -3,7 +3,7 @@ import { Outlet, NavLink } from "react-router-dom";
 export const EmployerLayout = () => {
   return (
     <div>
-      <h2>Employer Panel</h2>
+      {/* <h2>Employer Panel</h2>
 
       <nav>
         <NavLink to="/employer">Dashboard</NavLink> |{" "}
@@ -11,7 +11,7 @@ export const EmployerLayout = () => {
         <NavLink to="/employer/candidates">Candidates</NavLink>
       </nav>
 
-      <hr />
+      <hr /> */}
 
       <Outlet />
     </div>

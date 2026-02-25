@@ -54,9 +54,9 @@ export function Landing() {
         localStorage.setItem("userName", user.name || "");
 
         if (!user.name) {
-          navigate("/student/profile");
+          navigate("/student");
         } else {
-          navigate("/student/dashboard");
+          navigate("/student");
         }
       } else {
         // 🔥 ВАЖНО — сохраняем employerId

@@ -47,7 +47,7 @@ export const router = createBrowserRouter([
       { path: "skill-gap", element: <StudentSkillGap /> },
       { path: "growth-simulator", element: <StudentGrowthSimulator /> },
       { path: "action-plan", element: <StudentActionPlan /> },
-      { path: "skill-test", element: <StudentSkillTest /> },
+      { path: "skill-test/:postingId", element: <StudentSkillTest /> },
     ],
   },
 
