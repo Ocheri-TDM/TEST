@@ -6,12 +6,16 @@ import { EmployerLayout } from "../layouts/EmployerLayout";
 
 import { StudentDashboard } from "./pages/student/StudentDashboard";
 import { Register } from "./pages/auth/Register";
+import { About } from "./auth/About";
+import { Features } from "./auth/Features";
+
 import { StudentSkillAnalysis } from "./pages/student/StudentSkillAnalysis";
 import { StudentJobMatch } from "./pages/student/StudentJobMatch";
 import { StudentSkillGap } from "./pages/student/StudentSkillGap";
 import { StudentGrowthSimulator } from "./pages/student/StudentGrowthSimulator";
 import { StudentActionPlan } from "./pages/student/StudentActionPlan";
 import { StudentSkillTest } from "./pages/student/StudentSkillTest";
+import { StudentProfile } from "./pages/student/StudentProfile";
 
 import { EmployerDashboard } from "./pages/employer/EmployerDashboard";
 import { EmployerCreateJob } from "./pages/employer/EmployerCreateJob";
@@ -32,6 +36,15 @@ export const router = createBrowserRouter([
     path: "/register",
     element: <Register />,
   },
+  {
+    path: "/about",
+    element: <About />,
+  },
+  {
+    path: "/features",
+    element: <Features />,
+
+  },
 
   // Страницы студента, требующие авторизации
   {
@@ -43,6 +56,7 @@ export const router = createBrowserRouter([
     ),
     children: [
       { index: true, element: <StudentDashboard /> },
+      { path: "profile", element: <StudentProfile /> },
       { path: "skill-analysis", element: <StudentSkillAnalysis /> },
       { path: "job-match", element: <StudentJobMatch /> },
       { path: "skill-gap", element: <StudentSkillGap /> },

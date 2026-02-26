@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Интеграция API: Профиль и Резюме</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #3498db;
+            --primary-hover: #2980b9;
+            --danger: #e74c3c;
+            --danger-hover: #c0392b;
+            --bg: #f5f7fa;
+            --card-bg: #ffffff;
+            --text: #333333;
+            --border: #e1e8ed;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 40px 20px;
+            display: flex;
+            justify-content: center;
+        }
+        
+        .container {
+            max-width: 800px;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        
+        .card {
+            background: var(--card-bg);
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            border: 1px solid var(--border);
+        }
+        
+        h1 { margin-top: 0; font-size: 24px; color: #2c3e50; }
+        h2 { margin-top: 0; font-size: 18px; color: #34495e; border-bottom: 2px solid var(--bg); padding-bottom: 10px; margin-bottom: 20px;}
+        
+        .input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-bottom: 15px;
+        }
+        
+        .input-group label {
+            font-size: 14px;
+            font-weight: 600;
+            color: #555;
+        }
+        
+        .input-group input {
+            padding: 10px;
+            border-radius: 6px;
+            border: 1px solid #ccc;
+            font-size: 14px;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        
+        .input-group input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 14px;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            color: white;
+            transition: background 0.2s, transform 0.1s;
+        }
+        
+        .btn:active { transform: scale(0.98); }
+        .btn-get { background: var(--primary); }
+        .btn-get:hover { background: var(--primary-hover); }
+        .btn-pdf { background: var(--danger); }
+        .btn-pdf:hover { background: var(--danger-hover); }
+        
+        .response-area {
+            margin-top: 15px;
+            background: #282c34;
+            color: #abb2bf;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: Consolas, Monaco, 'Andale Mono', 'Ubuntu Mono', monospace;
+            white-space: pre-wrap;
+            word-break: break-all;
+            display: none;
+            max-height: 400px;
+            overflow-y: auto;
+            font-size: 13px;
+        }
+        
+        .status-msg {
+            margin-top: 15px;
+            font-size: 14px;
+            font-weight: 500;
+            padding: 10px;
+            border-radius: 6px;
+            display: none;
+        }
+        
+        .status-msg.info { display: block; background: #e8f4f8; color: #2980b9; border: 1px solid #bce0fd; }
+        .status-msg.success { display: block; background: #ebf9f1; color: #27ae60; border: 1px solid #bdf1d4; }
+        .status-msg.error { display: block; background: #fdf2f0; color: #c0392b; border: 1px solid #f9d8d5; }
+        
+        code {
+            background: #eee;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 13px;
+            color: #d35400;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <!-- Блок настроек API -->
+        <div class="card">
+            <h1>Настройки сервера</h1>
+            <p style="font-size: 14px; color: #666; margin-bottom: 20px;">
+                Укажите базовый URL вашего бэкенда. Все запросы будут отправляться на этот адрес.
+            </p>
+            <div class="input-group">
+                <label for="apiUrlInput">Базовый URL (ngrok или localhost):</label>
+                <input type="text" id="apiUrlInput" value="https://6f8f87dbbf11.ngrok-free.app" placeholder="https://ваша-ссылка.ngrok-free.app">
+            </div>
+        </div>
+
+        <!-- Блок GET запроса профиля -->
+        <div class="card">
+            <h2>1. Запрос профиля</h2>
+            <p style="font-size: 14px; color: #666; margin-bottom: 20px;">
+                Отправляет <code>GET</code> запрос на эндпоинт <code>/profile</code>.
+            </p>
+            <button class="btn btn-get" onclick="getProfile()">
+                <i class="fa-solid fa-user"></i> Выполнить GET /profile
+            </button>
+            <pre id="profileResponse" class="response-area"></pre>
+        </div>
+
+        <!-- Блок POST загрузки PDF -->
+        <div class="card">
+            <h2>2. Загрузка резюме (PDF)</h2>
+            <p style="font-size: 14px; color: #666; margin-bottom: 20px;">
+                Отправляет выбранный PDF-файл через <code>POST</code> (multipart/form-data) на эндпоинт <code>/resume/upload</code>.
+            </p>
+            
+            <input type="file" id="resumeInput" accept="application/pdf" style="display: none;">
+            <button class="btn btn-pdf" onclick="document.getElementById('resumeInput').click()">
+                <i class="fa-solid fa-file-pdf"></i> Выбрать и загрузить PDF
+            </button>
+            
+            <div id="uploadStatus" class="status-msg"></div>
+        </div>
+    </div>
+
+    <script>
+        // Функция для получения корректного базового URL без слэша на конце
+        function getBaseUrl() {
+            let url = document.getElementById('apiUrlInput').value.trim();
+            if (url.endsWith('/')) {
+                url = url.slice(0, -1);
+            }
+            return url;
+        }
+
+        // 1. Функция GET-запроса профиля
+        async function getProfile() {
+            const responseArea = document.getElementById('profileResponse');
+            responseArea.style.display = 'block';
+            responseArea.textContent = 'Отправка запроса...';
+            responseArea.style.color = '#abb2bf'; // Сброс цвета
+
+            try {
+                const response = await fetch(`${getBaseUrl()}/profile`, {
+                    method: 'GET',
+                    headers: { 
+                        'ngrok-skip-browser-warning': 'true' // Обход предупреждения ngrok
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`Ошибка HTTP: ${response.status} ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                // Выводим отформатированный JSON на экран
+                responseArea.textContent = JSON.stringify(data, null, 2);
+                responseArea.style.color = '#98c379'; // Зеленый цвет для успешного JSON
+                
+            } catch (error) {
+                console.error("Fetch error:", error);
+                responseArea.textContent = `Ошибка выполнения запроса:\n${error.message}`;
+                responseArea.style.color = '#e06c75'; // Красный цвет для ошибки
+            }
+        }
+
+        // 2. Обработчик выбора файла и POST-загрузки
+        document.getElementById('resumeInput').addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            const statusDiv = document.getElementById('uploadStatus');
+            
+            if (!file) return;
+
+            // Валидация на стороне клиента
+            if (file.type !== 'application/pdf') {
+                statusDiv.textContent = 'Ошибка: Пожалуйста, выберите файл в формате PDF.';
+                statusDiv.className = 'status-msg error';
+                e.target.value = ''; // Сбрасываем input
+                return;
+            }
+
+            statusDiv.textContent = `Отправка файла "${file.name}" на сервер...`;
+            statusDiv.className = 'status-msg info';
+
+            // Подготовка данных для отправки
+            const formData = new FormData();
+            formData.append('file', file); // Если бэкенд ждет другое имя поля, поменяйте 'file' здесь
+
+            try {
+                const response = await fetch(`${getBaseUrl()}/resume/upload`, {
+                    method: 'POST',
+                    headers: { 
+                        'ngrok-skip-browser-warning': 'true'
+                    },
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    // Пытаемся прочитать текст ошибки с сервера, если он есть
+                    const errText = await response.text();
+                    throw new Error(`HTTP ${response.status}: ${errText || response.statusText}`);
+                }
+                
+                statusDiv.innerHTML = `<strong>Успех!</strong> Файл "${file.name}" успешно загружен.`;
+                statusDiv.className = 'status-msg success';
+                
+            } catch (error) {
+                console.error("Upload error:", error);
+                statusDiv.textContent = `Ошибка загрузки: ${error.message}`;
+                statusDiv.className = 'status-msg error';
+            }
+            
+            // Сбрасываем input, чтобы можно было загрузить этот же файл повторно, если нужно
+            e.target.value = '';
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,19 @@
+{
+  "about": "About",
+  "features": "Features",
+  "aiTagline": "AI-Powered Career Matching",
+  "heroTitle": "Your Future Career, Perfectly Matched",
+  "heroDescription": "Advanced AI that analyzes your skills, matches you with opportunities, and creates personalized growth plans.",
+  "smartJobMatching": "Smart Job Matching",
+  "growthSimulator": "Growth Simulator",
+  "personalizedPlans": "Personalized Action Plans",
+  "getStarted": "Get Started",
+  "student": "Student",
+  "employer": "Employer",
+  "email": "Email Address",
+  "password": "Password",
+  "loginStudent": "Login as Student",
+  "loginEmployer": "Login as Employer",
+  "signup": "Sign up for free",
+  "dontHaveAccount": "Don't have an account?"
+}

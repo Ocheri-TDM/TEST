@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState } from "react";
 import { Navbar } from "../../components/Navbar";
 import { StatCard } from "../../components/StatCard";
 import { ProgressBar } from "../../components/ProgressBar";
@@ -23,8 +23,6 @@ interface Student {
   portfolio: string;
   experience: string;
   techStack: string[];
-  tests?: { name: string; score: number }[];
-  appliedJobs?: { jobId: number; score: number }[];
   activities?: { action: string; type: string; time: string }[];
 }
 
@@ -43,16 +41,27 @@ interface Job {
   idEmployer: number;
 }
 
+interface CandidatePost {
+  id: number;
+  studentId: number;
+  employerId: number;
+  jobId: number;
+  name: string;
+  matchPercentage: number;
+  MatchingSkills: string;
+  MissingSkills: string;
+}
+
 export function StudentDashboard() {
   const navigate = useNavigate();
   const [student, setStudent] = useState<Student | null>(null);
   const [jobs, setJobs] = useState<Job[]>([]);
+  const [candidatePosts, setCandidatePosts] = useState<CandidatePost[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const email = localStorage.getItem("userEmail");
     const token = localStorage.getItem("authToken");
-
     if (!email || !token) {
       navigate("/");
       return;
@@ -60,19 +69,22 @@ export function StudentDashboard() {
 
     const fetchData = async () => {
       try {
-        const [studentRes, jobsRes] = await Promise.all([
+        const [studentsRes, jobsRes, postsRes] = await Promise.all([
           fetch("https://19e71b04da22e75b.mokky.dev/students"),
           fetch("https://19e71b04da22e75b.mokky.dev/employer-posting"),
+          fetch("https://19e71b04da22e75b.mokky.dev/post-candidate"),
         ]);
 
-        const studentsData: Student[] = await studentRes.json();
+        const studentsData: Student[] = await studentsRes.json();
         const jobsData: Job[] = await jobsRes.json();
+        const postsData: CandidatePost[] = await postsRes.json();
 
         const currentStudent = studentsData.find((s) => s.email === email);
         setStudent(currentStudent || null);
         setJobs(jobsData);
+        setCandidatePosts(postsData);
       } catch (err) {
-        console.error("Student dashboard loading error:", err);
+        console.error("Dashboard loading error:", err);
       } finally {
         setLoading(false);
       }
@@ -85,26 +97,25 @@ export function StudentDashboard() {
   if (!student) return <div>No student data found.</div>;
 
   // ---------------------------
-  // Dynamic Data
+  // Top Job Matches — последние 3 попытки текущего студента
   // ---------------------------
+  const studentPosts = candidatePosts
+    .filter((p) => p.studentId === student.id)
+    .slice(-3) // последние 3
+    .reverse(); // новые сверху
 
-  // Top Skills (tests)
-  const topSkills = student.tests?.length
-    ? student.tests.map((t) => ({ name: t.name, level: t.score }))
-    : [{ name: "No completed tests", level: 0 }];
+  const topJobMatches = studentPosts.map((post) => {
+    const job = jobs.find((j) => j.id === post.jobId);
+    return job
+      ? {
+          ...job,
+          matchPercentage: post.matchPercentage,
+          matchingSkills: post.MatchingSkills.split(",").map((s) => s.trim()),
+          missingSkills: post.MissingSkills.split(",").map((s) => s.trim()),
+        }
+      : null;
+  }).filter(Boolean);
 
-  // Top Job Matches (appliedJobs + score)
-  const topJobMatches = student.appliedJobs
-    ? student.appliedJobs
-        .map((a) => {
-          const job = jobs.find((j) => j.id === a.jobId);
-          return job ? { ...job, matchPercentage: a.score } : null;
-        })
-        .filter(Boolean)
-        .slice(0, 5)
-    : [];
-
-  // Average Match
   const averageMatch = topJobMatches.length
     ? Math.round(
         topJobMatches.reduce((acc, j) => acc + (j.matchPercentage || 0), 0) /
@@ -112,10 +123,20 @@ export function StudentDashboard() {
       )
     : 0;
 
-  // Total jobs (applied)
-  const totalJobs = student.appliedJobs?.length || 0;
+  const totalJobs = candidatePosts.filter((p) => p.studentId === student.id)
+    .length;
 
-  // Recent Activity
+  // ---------------------------
+  // Top Skills (по последней попытке)
+  // ---------------------------
+  const lastPost = studentPosts[studentPosts.length - 1];
+  const topSkills = lastPost
+    ? lastPost.MatchingSkills.split(",").map((skill) => ({
+        name: skill.trim(),
+        level: 80, // можно сделать расчет уровня на основе matchPercentage
+      }))
+    : [];
+
   const recentActivity = student.activities || [];
 
   return (

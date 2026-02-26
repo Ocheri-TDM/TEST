@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { Navbar } from "../../components/Navbar";
 import { SkillBadge } from "../../components/SkillBadge";
@@ -11,21 +11,12 @@ import {
   ChevronDown,
   ChevronUp,
   Building2,
+  ArrowRight,
 } from "lucide-react";
 
-interface CandidateAttempt {
-  date: string;
-  MatchingSkills: string; // строка через запятую
-  MissingSkills: string;  // строка через запятую
-  score: number;
-  matchingSkills?: string[];
-  missingSkills?: string[];
-}
-
 interface PostCandidate {
-  id: number;
   jobId: number;
-  attempts: CandidateAttempt[];
+  score: number;
 }
 
 interface Job {
@@ -36,6 +27,9 @@ interface Job {
   salary: string;
   type: string;
   description: string;
+  matchPercentage?: number;
+  matchingSkills: string[];
+  missingSkills: string[];
 }
 
 export function StudentJobMatch() {
@@ -56,33 +50,36 @@ export function StudentJobMatch() {
         ]);
 
         const jobsDataRaw = await jobsRes.json();
-        const candidatesDataRaw: PostCandidate[] = await candidatesRes.json();
+        const candidatesDataRaw = await candidatesRes.json();
         const employers: { id: number; companyName: string }[] = await employersRes.json();
 
-        const jobsData: Job[] = jobsDataRaw.map((j: any) => ({
-          id: j.id,
-          title: j.jobTitle,
-          company: employers.find((e) => e.id === j["id-employer"])?.companyName ?? j.postedBy,
-          location: j.location,
-          salary: `${j.salaryMin} - ${j.salaryMax}`,
-          type: j.jobType,
-          description: j.description,
-        }));
+        const jobsData: Job[] = jobsDataRaw.map((j: any) => {
+          const jobCandidates = candidatesDataRaw.filter(
+            (c: any) => c.jobId === j.id
+          );
 
-        // Парсим строки навыков в массивы
-        const candidatesData = candidatesDataRaw.map((c) => ({
-          ...c,
-          attempts: Array.isArray(c.attempts)
-            ? c.attempts.map((a: CandidateAttempt) => ({
-                ...a,
-                matchingSkills: a.MatchingSkills?.split(",").map((s) => s.trim()) || [],
-                missingSkills: a.MissingSkills?.split(",").map((s) => s.trim()) || [],
-              }))
-            : [],
-        }));
+          const attempts = jobCandidates.map((c: any) => c.matchPercentage || 0);
+          const avgMatch =
+            attempts.length > 0
+              ? Math.round(attempts.reduce((sum: number, val: number) => sum + val, 0) / attempts.length)
+              : 0;
+
+          return {
+            id: j.id,
+            title: j.jobTitle,
+            company: employers.find((e) => e.id === j["id-employer"])?.companyName ?? j.postedBy,
+            location: j.location,
+            salary: `${j.salaryMin} - ${j.salaryMax}`,
+            type: j.jobType,
+            description: j.description,
+            matchPercentage: avgMatch,
+            matchingSkills: j.matchingSkills || [],
+            missingSkills: j.missingSkills || [],
+          };
+        });
 
         setJobs(jobsData);
-        setCandidates(candidatesData);
+        setCandidates(candidatesDataRaw);
       } catch (err) {
         console.error("Job match load error:", err);
       } finally {
@@ -93,8 +90,6 @@ export function StudentJobMatch() {
     fetchData();
   }, []);
 
-  if (loading) return <div>Loading jobs...</div>;
-
   const getMatchColor = (percentage: number) => {
     if (percentage >= 80)
       return { color: "green", bg: "bg-green-50", text: "text-green-700", border: "border-green-200" };
@@ -103,37 +98,50 @@ export function StudentJobMatch() {
     return { color: "red", bg: "bg-red-50", text: "text-red-700", border: "border-red-200" };
   };
 
+  const totalMatches = useMemo(() => jobs?.length || 0, [jobs]);
+  const bestMatch = useMemo(() => (jobs && jobs.length > 0 ? Math.max(...jobs.map(j => j.matchPercentage || 0)) : 0), [jobs]);
+  const avgMatchScore = useMemo(() => (jobs && jobs.length > 0 ? Math.round(jobs.reduce((acc, j) => acc + (j.matchPercentage || 0), 0) / jobs.length) : 0), [jobs]);
+
+  if (loading) return <div>Loading jobs...</div>;
+
   return (
     <div className="min-h-screen bg-gray-50">
       <Navbar role="student" userName="John Doe" />
 
       <div className="max-w-7xl mx-auto px-6 py-12">
+        {/* Header */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Job Matches</h1>
-          <p className="text-gray-600">Opportunities based on your skills and past attempts</p>
+          <p className="text-gray-600">AI-matched opportunities based on your skills and experience</p>
         </div>
 
+        {/* Summary */}
+        <div className="bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl p-6 mb-8 text-white">
+          <div className="grid md:grid-cols-3 gap-6">
+            <div>
+              <p className="text-blue-100 text-sm mb-1">Total Matches</p>
+              <p className="text-4xl font-bold">{totalMatches}</p>
+            </div>
+            <div>
+              <p className="text-blue-100 text-sm mb-1">Best Match</p>
+              <p className="text-4xl font-bold">{bestMatch}%</p>
+            </div>
+            <div>
+              <p className="text-blue-100 text-sm mb-1">Avg Match Score</p>
+              <p className="text-4xl font-bold">{avgMatchScore}%</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Jobs List */}
         <div className="space-y-4">
-          {jobs.map((job) => {
-            // все кандидаты для этой вакансии
-            const jobCandidates = candidates.filter((c) => c.jobId === job.id);
-
-            const attemptsList = jobCandidates.flatMap(c => c.attempts);
-            const totalScore = attemptsList.length > 0 
-              ? Math.round(attemptsList.reduce((sum, a) => sum + a.score, 0) / attemptsList.length) 
-              : 0;
-
-            const matchStyle = getMatchColor(totalScore);
-
+          {jobs && jobs.length > 0 ? jobs.map((job) => {
+            const matchStyle = getMatchColor(job.matchPercentage || 0);
             const isExpanded = expandedJob === job.id;
 
             return (
-              <div
-                key={job.id}
-                className="bg-white rounded-xl border border-gray-200 hover:shadow-lg transition-all overflow-hidden"
-              >
+              <div key={job.id} className="bg-white rounded-xl border border-gray-200 hover:shadow-lg transition-all overflow-hidden">
                 <div className="p-6">
-                  {/* Верхняя информация о вакансии */}
                   <div className="flex items-start justify-between mb-4">
                     <div className="flex-1">
                       <div className="flex items-start gap-3 mb-2">
@@ -161,48 +169,51 @@ export function StudentJobMatch() {
                         </div>
                       </div>
                     </div>
+
+                    {/* Match Score */}
+                    <div
+                      className="relative ml-4"
+                      onMouseEnter={() => setHoveredMatch(job.id)}
+                      onMouseLeave={() => setHoveredMatch(null)}
+                    >
+                      <div className={`${matchStyle.bg} ${matchStyle.border} border-2 rounded-xl p-4 text-center min-w-[120px]`}>
+                        <p className={`text-3xl font-bold ${matchStyle.text}`}>
+                          {job.matchPercentage}%
+                        </p>
+                        <p className="text-xs text-gray-600 mt-1">Match Score</p>
+                        <Info className="w-4 h-4 text-gray-400 mx-auto mt-2" />
+                      </div>
+                    </div>
                   </div>
 
-                  {/* Верхний индикатор — общий процент по всем попыткам */}
-                  {attemptsList.length > 0 && (
-                    <div className={`${matchStyle.bg} ${matchStyle.border} border-2 rounded-xl p-4 text-center min-w-[120px] mb-4`}>
-                      <p className={`text-3xl font-bold ${matchStyle.text}`}>{totalScore}%</p>
-                      <p className="text-xs text-gray-600 mt-1">Average Match</p>
-                      <Info className="w-4 h-4 text-gray-400 mx-auto mt-2" />
+                  {/* Matching Skills */}
+                  <div className="mb-4">
+                    <p className="text-sm font-medium text-gray-700 mb-2">Matching Skills:</p>
+                    <div className="flex flex-wrap gap-2">
+                      {job.matchingSkills.map((skill) => (
+                        <SkillBadge key={skill} skill={skill} variant="strong" />
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Missing Skills */}
+                  {job.missingSkills.length > 0 && (
+                    <div className="mb-4">
+                      <p className="text-sm font-medium text-gray-700 mb-2">Missing Skills:</p>
+                      <div className="flex flex-wrap gap-2">
+                        {job.missingSkills.map((skill) => (
+                          <SkillBadge key={skill} skill={skill} variant="missing" />
+                        ))}
+                      </div>
                     </div>
                   )}
 
-                  {/* Все попытки прохождения теста для вакансии */}
-                  {attemptsList.length > 0 ? (
-                    <div className="mb-4 space-y-4">
-                      {attemptsList.map((attempt, idx) => {
-                        const attemptStyle = getMatchColor(attempt.score);
-                        return (
-                          <div key={idx} className="border border-gray-200 rounded-xl p-4 bg-gray-50">
-                            <div className="flex justify-between items-center mb-2">
-                              <p className={`font-semibold ${attemptStyle.text}`}>{attempt.score}%</p>
-                              <p className="text-xs text-gray-500">{attempt.date}</p>
-                            </div>
-                            <div className="flex flex-wrap gap-2 mb-2">
-                              {attempt.matchingSkills?.map(s => (
-                                <SkillBadge key={s} skill={s} variant="strong" />
-                              ))}
-                              {attempt.matchingSkills?.length === 0 && <span className="text-gray-500 text-xs">No matched skills</span>}
-                            </div>
-                            <div className="flex flex-wrap gap-2">
-                              {attempt.missingSkills?.map(s => (
-                                <SkillBadge key={s} skill={s} variant="missing" />
-                              ))}
-                              {attempt.missingSkills?.length === 0 && <span className="text-gray-500 text-xs">No missing skills</span>}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  ) : (
-                    <p className="text-gray-500 mb-4">No attempts yet for this job.</p>
-                  )}
+                  {/* Match Progress */}
+                  <div className="mb-4">
+                    <ProgressBar value={job.matchPercentage || 0} color={matchStyle.color as any} />
+                  </div>
 
+                  {/* Expand/Collapse */}
                   <div className="flex items-center justify-between">
                     <button
                       onClick={() => setExpandedJob(isExpanded ? null : job.id)}
@@ -219,14 +230,13 @@ export function StudentJobMatch() {
                       )}
                     </button>
 
-                    <button
-                      onClick={() => navigate(`/student/skill-test/${job.id}`)}
-                      className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium text-sm"
-                    >
+                    <button className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium text-sm"
+                    onClick={() => navigate(`/student/skill-test/${job.id}`)}>
                       Apply Now
                     </button>
                   </div>
 
+                  {/* Expanded Details */}
                   {isExpanded && (
                     <div className="mt-6 pt-6 border-t border-gray-200">
                       <h4 className="font-semibold text-gray-900 mb-2">Job Description</h4>
@@ -236,7 +246,9 @@ export function StudentJobMatch() {
                 </div>
               </div>
             );
-          })}
+          }) : (
+            <p className="text-gray-500">No job matches available.</p>
+          )}
         </div>
       </div>
     </div>

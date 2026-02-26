@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import {
   Brain,
   Users,
@@ -8,14 +9,24 @@ import {
   Target,
   Sparkles,
   ArrowRight,
+  Globe
 } from "lucide-react";
 
 export function Landing() {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<"student" | "employer">("student");
   const [email, setEmail] = useState("");
+  const { t, i18n } = useTranslation();
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [lang, setLang] = useState(i18n.language);
+
+  const changeLanguage = () => {
+  const nextLang = lang === "en" ? "ru" : lang === "ru" ? "kz" : "en";
+    i18n.changeLanguage(nextLang);
+    setLang(nextLang); // ⚡ обновляем state — React перерисует компонент
+  };
+
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -78,28 +89,44 @@ export function Landing() {
   };
 
   return (
+    
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50">
+    
       {/* Header */}
       <nav className="bg-white/80 backdrop-blur-sm border-b border-gray-200 px-6 py-4">
+
         <div className="max-w-7xl mx-auto flex items-center justify-between">
+          
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-purple-600 rounded-lg flex items-center justify-center">
               <Brain className="w-6 h-6 text-white" />
             </div>
             <h1 className="font-bold text-xl text-gray-900">CareerMatch AI</h1>
+            
           </div>
+      
+
           <div className="flex gap-4">
-            <button className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900">
+            <button className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900" onClick={() => navigate("/about")}>
               About
             </button>
-            <button className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900">
+            <button className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900" onClick={() => navigate("/features")}>
               Features
             </button>
+            <button
+  onClick={changeLanguage}
+  className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 transition-colors z-50"
+  title="Change Language"
+>
+  <Globe className="w-4 h-4 text-gray-700" />
+</button>
           </div>
         </div>
       </nav>
+      
 
       <div className="max-w-7xl mx-auto px-6 py-16">
+        
         <div className="grid lg:grid-cols-2 gap-16 items-center">
           {/* Left Side - Hero */}
           <div>

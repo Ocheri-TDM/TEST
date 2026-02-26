@@ -1,36 +1,117 @@
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Navbar } from "../../components/Navbar";
 import { ProgressBar } from "../../components/ProgressBar";
 import { SkillBadge } from "../../components/SkillBadge";
 import { StatCard } from "../../components/StatCard";
 import { ArrowRight, TrendingUp, CheckCircle2, AlertCircle, Target } from "lucide-react";
-import { RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
+import { RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
+
+interface CandidateAttempt {
+  studentId: number;
+  jobId: number;
+  MatchingSkills: string;
+  MissingSkills: string;
+  matchPercentage: number;
+  id: number;
+}
+
+interface SkillLevel {
+  name: string;
+  level: number;
+  category: "strong" | "moderate" | "weak";
+}
 
 export function StudentSkillAnalysis() {
   const navigate = useNavigate();
+  const [attempts, setAttempts] = useState<CandidateAttempt[]>([]);
+  const [strongSkills, setStrongSkills] = useState<SkillLevel[]>([]);
+  const [weakSkills, setWeakSkills] = useState<SkillLevel[]>([]);
+  const [radarData, setRadarData] = useState<any[]>([]);
+  const [skillLevelData, setSkillLevelData] = useState<SkillLevel[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const radarData = [
-    { skill: "Frontend", value: 85, fullMark: 100 },
-    { skill: "Backend", value: 65, fullMark: 100 },
-    { skill: "Database", value: 70, fullMark: 100 },
-    { skill: "DevOps", value: 45, fullMark: 100 },
-    { skill: "Cloud", value: 50, fullMark: 100 },
-    { skill: "Testing", value: 60, fullMark: 100 },
-  ];
+  const studentId = 1; // текущий пользователь
 
-  const skillLevelData = [
-    { name: "React", level: 85, category: "strong" },
-    { name: "TypeScript", level: 80, category: "strong" },
-    { name: "Node.js", level: 70, category: "moderate" },
-    { name: "Python", level: 65, category: "moderate" },
-    { name: "SQL", level: 60, category: "moderate" },
-    { name: "Docker", level: 45, category: "weak" },
-    { name: "AWS", level: 40, category: "weak" },
-    { name: "Kubernetes", level: 30, category: "weak" },
-  ];
+  useEffect(() => {
+    const fetchAttempts = async () => {
+      try {
+        const res = await fetch("https://19e71b04da22e75b.mokky.dev/post-candidate");
+        const data: CandidateAttempt[] = await res.json();
 
-  const strongSkills = skillLevelData.filter(s => s.category === "strong");
-  const weakSkills = skillLevelData.filter(s => s.category === "weak");
+        const userAttempts = data.filter(a => a.studentId === studentId);
+        setAttempts(userAttempts);
+
+        const skillMap: Record<string, { matched: number; total: number }> = {};
+
+        userAttempts.forEach(a => {
+          const matched = a.MatchingSkills ? a.MatchingSkills.split(",").map(s => s.trim()) : [];
+          const missing = a.MissingSkills ? a.MissingSkills.split(",").map(s => s.trim()) : [];
+
+          matched.forEach(skill => {
+            if (!skillMap[skill]) skillMap[skill] = { matched: 0, total: 0 };
+            skillMap[skill].matched += 1;
+            skillMap[skill].total += 1;
+          });
+
+          missing.forEach(skill => {
+            if (!skillMap[skill]) skillMap[skill] = { matched: 0, total: 0 };
+            skillMap[skill].total += 1; // total увеличиваем, matched остаётся 0
+          });
+        });
+
+        // создаём уровни
+        const levels: SkillLevel[] = Object.entries(skillMap).map(([name, val]) => {
+          const level = Math.round((val.matched / val.total) * 100);
+          let category: SkillLevel["category"];
+          if (level >= 80) category = "strong";
+          else if (level >= 50) category = "moderate";
+          else category = "weak";
+          return { name, level, category };
+        });
+
+        setSkillLevelData(levels);
+        setStrongSkills(levels.filter(s => s.category === "strong"));
+        setWeakSkills(levels.filter(s => s.category === "weak"));
+
+        // Пример radarData по категориям навыков
+        const categoryMap: Record<string, { sum: number; count: number }> = {};
+        levels.forEach(s => {
+          let cat = "Other";
+          if (/React|HTML|CSS|TypeScript|JS/i.test(s.name)) cat = "Frontend";
+          else if (/Node|Python|Java/i.test(s.name)) cat = "Backend";
+          else if (/SQL|Mongo|Database/i.test(s.name)) cat = "Database";
+          else if (/Docker|Kubernetes|DevOps/i.test(s.name)) cat = "DevOps";
+
+          if (!categoryMap[cat]) categoryMap[cat] = { sum: 0, count: 0 };
+          categoryMap[cat].sum += s.level;
+          categoryMap[cat].count += 1;
+        });
+
+        const radar = Object.entries(categoryMap).map(([skill, val]) => ({
+          skill,
+          value: Math.round(val.sum / val.count),
+          fullMark: 100,
+        }));
+        setRadarData(radar);
+
+      } catch (err) {
+        console.error("Failed to load attempts", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchAttempts();
+  }, []);
+
+  if (loading) return <div>Loading skill analysis...</div>;
+
+  // Market Readiness Score — пример на основе существующих strong/weak skills
+  const hardSkillsScore = strongSkills.length > 0 ? 80 : 60;
+  const softSkillsScore = 75; // можно заменить на реальные данные
+  const experienceScore = 70; // можно заменить на реальные данные
+  const demandAlignScore = strongSkills.length + weakSkills.length > 0 ? 85 : 65;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -49,7 +130,7 @@ export function StudentSkillAnalysis() {
             <div className="flex items-start justify-between mb-6">
               <div>
                 <p className="text-blue-100 mb-2">Overall Market Readiness Score</p>
-                <h2 className="text-6xl font-bold mb-4">78%</h2>
+                <h2 className="text-6xl font-bold mb-4">{Math.round((hardSkillsScore + softSkillsScore + experienceScore + demandAlignScore) / 4)}%</h2>
                 <p className="text-blue-100">You're competitive for mid-level positions</p>
               </div>
               <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center">
@@ -60,19 +141,19 @@ export function StudentSkillAnalysis() {
             <div className="grid grid-cols-4 gap-4">
               <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4">
                 <p className="text-sm text-blue-100 mb-1">Hard Skills</p>
-                <p className="text-2xl font-bold">82%</p>
+                <p className="text-2xl font-bold">{hardSkillsScore}%</p>
               </div>
               <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4">
                 <p className="text-sm text-blue-100 mb-1">Soft Skills</p>
-                <p className="text-2xl font-bold">75%</p>
+                <p className="text-2xl font-bold">{softSkillsScore}%</p>
               </div>
               <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4">
                 <p className="text-sm text-blue-100 mb-1">Experience</p>
-                <p className="text-2xl font-bold">70%</p>
+                <p className="text-2xl font-bold">{experienceScore}%</p>
               </div>
               <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4">
                 <p className="text-sm text-blue-100 mb-1">Demand Align</p>
-                <p className="text-2xl font-bold">85%</p>
+                <p className="text-2xl font-bold">{demandAlignScore}%</p>
               </div>
             </div>
           </div>
@@ -85,7 +166,6 @@ export function StudentSkillAnalysis() {
             value={strongSkills.length}
             icon={CheckCircle2}
             iconColor="bg-green-100 text-green-600"
-            trend={{ value: 12, label: "from last month" }}
           />
           <StatCard
             title="Skills to Improve"
@@ -95,15 +175,14 @@ export function StudentSkillAnalysis() {
           />
           <StatCard
             title="Job Matches Found"
-            value={24}
+            value={attempts.length}
             icon={TrendingUp}
             iconColor="bg-blue-100 text-blue-600"
-            trend={{ value: 8, label: "new this week" }}
           />
         </div>
 
+        {/* Charts */}
         <div className="grid lg:grid-cols-2 gap-8 mb-8">
-          {/* Radar Chart */}
           <div className="bg-white rounded-xl border border-gray-200 p-6">
             <h2 className="text-xl font-semibold text-gray-900 mb-6">Skill Category Breakdown</h2>
             <ResponsiveContainer width="100%" height={300}>
@@ -120,12 +199,8 @@ export function StudentSkillAnalysis() {
                 />
               </RadarChart>
             </ResponsiveContainer>
-            <p className="text-sm text-gray-600 mt-4 text-center">
-              Your strongest area is Frontend (85%), focus on improving DevOps skills
-            </p>
           </div>
 
-          {/* Bar Chart */}
           <div className="bg-white rounded-xl border border-gray-200 p-6">
             <h2 className="text-xl font-semibold text-gray-900 mb-6">Individual Skill Levels</h2>
             <ResponsiveContainer width="100%" height={300}>
@@ -147,7 +222,7 @@ export function StudentSkillAnalysis() {
             <h2 className="text-xl font-semibold text-gray-900">Strong Skills</h2>
           </div>
           <div className="space-y-4">
-            {strongSkills.map((skill) => (
+            {strongSkills.map(skill => (
               <div key={skill.name}>
                 <div className="flex items-center justify-between mb-2">
                   <SkillBadge skill={skill.name} variant="strong" />
@@ -166,7 +241,7 @@ export function StudentSkillAnalysis() {
             <h2 className="text-xl font-semibold text-gray-900">Skills That Need Improvement</h2>
           </div>
           <div className="space-y-4">
-            {weakSkills.map((skill) => (
+            {weakSkills.map(skill => (
               <div key={skill.name}>
                 <div className="flex items-center justify-between mb-2">
                   <SkillBadge skill={skill.name} variant="weak" />
@@ -181,17 +256,10 @@ export function StudentSkillAnalysis() {
         {/* Action Buttons */}
         <div className="flex justify-end gap-4">
           <button
-            onClick={() => navigate("/student/profile")}
+            onClick={() => navigate("/student")}
             className="px-6 py-3 text-gray-600 hover:text-gray-900 font-medium"
           >
-            Back to Profile
-          </button>
-          <button
-            onClick={() => navigate("/student/job-match")}
-            className="px-8 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg font-semibold hover:shadow-lg transition-all flex items-center gap-2"
-          >
-            View Job Matches
-            <ArrowRight className="w-4 h-4" />
+            Back to Dashboard
           </button>
         </div>
       </div>

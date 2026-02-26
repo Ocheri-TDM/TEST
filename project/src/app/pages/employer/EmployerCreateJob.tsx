@@ -50,12 +50,13 @@ export function EmployerCreateJob() {
   const removeSoftSkill = (skill: string) => {
     setSoftSkills(softSkills.filter(s => s !== skill));
   };
-
+  
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const employerId = localStorage.getItem("userId");
-
+    const employerId = localStorage.getItem("employerId");
+    
     if (!employerId) {
+      console.log("employerId:", employerId);
       alert("Employer not authenticated");
       return;
     }
@@ -391,7 +392,7 @@ export function EmployerCreateJob() {
               disabled={!jobTitle || !description || hardSkills.length === 0}
               className="px-8 py-3 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg font-semibold hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
             >
-              Post Job & Find Candidates
+              Create test & Check abillity
               <ArrowRight className="w-4 h-4" />
             </button>
           </div>
